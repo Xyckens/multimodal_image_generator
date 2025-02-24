@@ -4,10 +4,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from diffusers import StableDiffusionControlNetPipeline, ControlNetModel, UniPCMultistepScheduler
 from controlnet_aux import CannyDetector
+from PIL import Image
 
 # Load pre-trained models
 model_id = "runwayml/stable-diffusion-v1-5"
-controlnet_id = "thibaud/controlnet-sd15-canny"
+controlnet_id = "lllyasviel/control_v11p_sd15_canny"
 
 # Load ControlNet (Canny Edge Detection)
 controlnet = ControlNetModel.from_pretrained(controlnet_id, torch_dtype=torch.float16)
@@ -32,7 +33,6 @@ canny = cv2.Canny(image, 100, 200)
 canny = cv2.cvtColor(canny, cv2.COLOR_GRAY2RGB)
 
 # Convert to PIL image format
-from PIL import Image
 canny_pil = Image.fromarray(canny)
 
 # Display Canny Edge Image
@@ -49,6 +49,8 @@ options = [
     "a downwards slope",
     "a wide curve right",
     "a wide curve left",
+    "a tight curve right",
+    "a tight curve left",
     "a crosswalk",
 ]
 # Generate variations
