@@ -1,48 +1,33 @@
 import torch
 import cv2
-import numpy as np
-import matplotlib.pyplot as plt
-from diffusers import StableDiffusionControlNetPipeline, ControlNetModel, UniPCMultistepScheduler
-from controlnet_aux import CannyDetector
+from diffusers import StableDiffusionControlNetPipeline, ControlNetModel
 from PIL import Image
 
-# Load pre-trained models
+torch.backends.cudnn.benchmark = True
+torch.backends.cuda.matmul.allow_tf32 = True
+
 model_id = "runwayml/stable-diffusion-v1-5"
 controlnet_id = "lllyasviel/control_v11p_sd15_canny"
 
 # Load ControlNet (Canny Edge Detection)
-controlnet = ControlNetModel.from_pretrained(controlnet_id, torch_dtype=torch.float16)
+controlnet = ControlNetModel.from_pretrained(controlnet_id, torch_dtype=torch.float16, low_cpu_mem_usage=True)
 
 # Load Stable Diffusion pipeline with ControlNet
 pipe = StableDiffusionControlNetPipeline.from_pretrained(
-    model_id, controlnet=controlnet, torch_dtype=torch.float16
+    model_id, controlnet=controlnet, torch_dtype=torch.float16, low_cpu_mem_usage=True
 )
+pipe.to("cuda", device_map="auto")
 
-# Use efficient scheduler
-pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
+input_image_path = "untitled.png"
+image = cv2.imread(input_image_path, cv2.IMREAD_COLOR)
+image = cv2.resize(image, (840, 840))
 
-# Move to GPU
-pipe.to("cuda")
-
-# Load input image
-input_image_path = "input_road.png"  # Replace with your image path
-image = cv2.imread(input_image_path, cv2.IMREAD_GRAYSCALE)
-
-# Apply Canny Edge Detection
-canny = cv2.Canny(image, 100, 200)
-canny = cv2.cvtColor(canny, cv2.COLOR_GRAY2RGB)
+canny = cv2.Canny(image, 90, 210)
+#canny = cv2.cvtColor(canny, cv2.COLOR_GRAY2RGB)
 
 # Convert to PIL image format
 canny_pil = Image.fromarray(canny)
 
-# Display Canny Edge Image
-plt.figure(figsize=(5, 5))
-plt.imshow(canny, cmap="gray")
-plt.axis("off")
-plt.title("Canny Edge Detected Image")
-plt.show()
-
-# Prompt variations for generating different lane styles
 options = [
     "a double bend",
     "an upwards slope",
@@ -52,27 +37,18 @@ options = [
     "a tight curve right",
     "a tight curve left",
     "a crosswalk",
+    "a zebra-crossing",
 ]
-# Generate variations
 generated_images = []
 for text in options:
     image = pipe(
-        prompt=f"A minimalistic empty road with an orange lane with {text}, white background",
+        prompt=f"imagine the continuation of this road with {text}",
         image=canny_pil,
         num_inference_steps=30,
-        guidance_scale=7.5
+        guidance_scale=8.5
     ).images[0]
     
     generated_images.append(image)
 
-# Show all generated images
-fig, axes = plt.subplots(1, len(generated_images), figsize=(15, 5))
 for i, img in enumerate(generated_images):
-    axes[i].imshow(img)
-    axes[i].axis("off")
-    axes[i].set_title(f"Variation {i+1}")
-plt.show()
-
-# Save generated images
-for i, img in enumerate(generated_images):
-    img.save(f"generated_road_{i+1}.png")
+    img.save(f"outputs/generated_{i+1}_{input_image_path}")
